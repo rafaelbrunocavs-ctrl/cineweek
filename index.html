@@ -983,7 +983,7 @@ Portrait of a Lady on Fire
     return result;
   }
 
-  
+  function handleInput() {
     const raw = document.getElementById('movieInput').value;
     const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
     movies = lines.map(line => {
