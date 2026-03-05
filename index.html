@@ -239,40 +239,26 @@
 
   input[type="number"] { width: 80px; }
 
-  /* CSV Drop Zone */
-  .csv-drop-zone {
-    border: 2px dashed var(--border);
-    border-radius: 6px;
-    padding: 1.5rem;
-    text-align: center;
+  /* CSV upload button */
+  .btn-csv {
+    width: 100%;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    color: var(--ink);
     cursor: pointer;
     transition: all 0.2s;
-    background: var(--card-bg);
-    margin-bottom: 0;
+    text-align: center;
   }
 
-  .csv-drop-zone:hover, .csv-drop-zone.drag-over {
+  .btn-csv:hover, .btn-csv:active {
     border-color: var(--rust);
     background: rgba(192,57,43,0.04);
-  }
-
-  .csv-icon {
-    font-size: 1.5rem;
-    margin-bottom: 0.4rem;
-    color: var(--muted);
-  }
-
-  .csv-label {
-    font-size: 0.875rem;
-    color: var(--ink);
-    margin-bottom: 0.2rem;
-  }
-
-  .csv-sub {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.65rem;
-    color: var(--muted);
-    letter-spacing: 0.05em;
+    color: var(--rust);
   }
 
   .divider-or {
@@ -749,12 +735,13 @@
       <h2>Cole sua lista de filmes</h2>
       <p class="subtitle">Cole os títulos da sua watchlist do Letterboxd, um por linha. Você também pode adicionar o ano entre parênteses.</p>
 
-      <!-- CSV Drop Zone -->
-      <div class="csv-drop-zone" id="csvDropZone" onclick="document.getElementById('csvFileInput').click()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+      <!-- CSV Upload Button -->
+      <div style="margin-bottom:0;">
         <input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="handleCSVFile(event)">
-        <div class="csv-icon">⬆</div>
-        <div class="csv-label">Arraste o <strong>watchlist.csv</strong> aqui</div>
-        <div class="csv-sub">ou clique para selecionar o arquivo</div>
+        <button class="btn-csv" onclick="document.getElementById('csvFileInput').click()">
+          ↑ Importar watchlist.csv do Letterboxd
+        </button>
+        <div id="csvStatus" style="display:none;margin-top:0.75rem;font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--gold);">✓ Filmes importados!</div>
       </div>
 
       <div class="divider-or"><span>ou cole manualmente</span></div>
@@ -924,26 +911,6 @@ Portrait of a Lady on Fire
   nextMonday.setDate(today.getDate() + (dayOfWeek === 1 ? 0 : daysToMonday));
   dateInput.value = nextMonday.toISOString().slice(0, 10);
 
-  function handleDragOver(e) {
-    e.preventDefault();
-    document.getElementById('csvDropZone').classList.add('drag-over');
-  }
-
-  function handleDragLeave(e) {
-    document.getElementById('csvDropZone').classList.remove('drag-over');
-  }
-
-  function handleDrop(e) {
-    e.preventDefault();
-    document.getElementById('csvDropZone').classList.remove('drag-over');
-    const file = e.dataTransfer.files[0];
-    if (file && file.name.endsWith('.csv')) {
-      parseCSVFile(file);
-    } else {
-      showToast('Por favor, use um arquivo .csv');
-    }
-  }
-
   function handleCSVFile(e) {
     const file = e.target.files[0];
     if (file) parseCSVFile(file);
@@ -952,38 +919,54 @@ Portrait of a Lady on Fire
   function parseCSVFile(file) {
     const reader = new FileReader();
     reader.onload = function(e) {
-      const text = e.target.result;
-      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-      if (lines.length < 2) { showToast('CSV inválido ou vazio'); return; }
+      try {
+        let text = e.target.result;
+        // Remove BOM if present
+        text = text.replace(/^\uFEFF/, '');
+        // Normalize line endings
+        text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
-      // Find header row to locate Name and Year columns
-      const header = lines[0].split(',').map(h => h.replace(/"/g, '').trim().toLowerCase());
-      const nameIdx = header.findIndex(h => h === 'name');
-      const yearIdx = header.findIndex(h => h === 'year');
+        const lines = text.split('\n').filter(l => l.trim());
+        if (lines.length < 2) { showToast('CSV vazio ou inválido'); return; }
 
-      if (nameIdx === -1) { showToast('Coluna "Name" não encontrada no CSV'); return; }
+        const header = splitCSVLine(lines[0]).map(h => h.replace(/"/g, '').trim().toLowerCase());
+        
+        // Try to find Name column (Letterboxd uses "Name")
+        let nameIdx = header.findIndex(h => h === 'name');
+        if (nameIdx === -1) nameIdx = header.findIndex(h => h.includes('name') || h.includes('title') || h.includes('nome'));
+        if (nameIdx === -1) nameIdx = 0; // fallback to first column
 
-      const parsed = [];
-      for (let i = 1; i < lines.length; i++) {
-        const cols = splitCSVLine(lines[i]);
-        const name = cols[nameIdx]?.replace(/"/g, '').trim();
-        const year = yearIdx !== -1 ? cols[yearIdx]?.replace(/"/g, '').trim() : '';
-        if (name) parsed.push(year ? `${name} (${year})` : name);
+        let yearIdx = header.findIndex(h => h === 'year');
+        if (yearIdx === -1) yearIdx = header.findIndex(h => h.includes('year') || h.includes('ano'));
+
+        const parsed = [];
+        for (let i = 1; i < lines.length; i++) {
+          const cols = splitCSVLine(lines[i]);
+          if (!cols.length) continue;
+          const name = cols[nameIdx]?.replace(/"/g, '').trim();
+          const year = yearIdx !== -1 ? cols[yearIdx]?.replace(/"/g, '').trim() : '';
+          if (name && name.length > 0) {
+            parsed.push(year && /^\d{4}$/.test(year) ? `${name} (${year})` : name);
+          }
+        }
+
+        if (parsed.length === 0) { showToast('Nenhum filme encontrado — verifique o arquivo'); return; }
+
+        document.getElementById('movieInput').value = parsed.join('\n');
+        handleInput();
+        showToast(`✓ ${parsed.length} filmes importados!`);
+
+        const status = document.getElementById('csvStatus');
+        status.style.display = 'block';
+        status.textContent = `✓ ${parsed.length} filmes importados de "${file.name}"`;
+        document.querySelector('.btn-csv').textContent = `✓ ${file.name}`;
+      } catch(err) {
+        showToast('Erro ao ler o arquivo CSV');
+        console.error(err);
       }
-
-      if (parsed.length === 0) { showToast('Nenhum filme encontrado no CSV'); return; }
-
-      document.getElementById('movieInput').value = parsed.join('\n');
-      handleInput();
-      showToast(`✓ ${parsed.length} filmes importados do CSV!`);
-
-      // Update drop zone
-      const zone = document.getElementById('csvDropZone');
-      zone.style.borderColor = 'var(--gold)';
-      zone.querySelector('.csv-icon').textContent = '✓';
-      zone.querySelector('.csv-label').innerHTML = `<strong>${parsed.length} filmes</strong> importados com sucesso`;
-      zone.querySelector('.csv-sub').textContent = file.name;
     };
+    reader.onerror = () => showToast('Erro ao abrir o arquivo');
+    // Try UTF-8 first, fallback handled by BOM removal
     reader.readAsText(file, 'UTF-8');
   }
 
