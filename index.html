@@ -239,7 +239,138 @@
 
   input[type="number"] { width: 80px; }
 
-  /* CTA Button */
+  /* CSV Drop Zone */
+  .csv-drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 6px;
+    padding: 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--card-bg);
+    margin-bottom: 0;
+  }
+
+  .csv-drop-zone:hover, .csv-drop-zone.drag-over {
+    border-color: var(--rust);
+    background: rgba(192,57,43,0.04);
+  }
+
+  .csv-icon {
+    font-size: 1.5rem;
+    margin-bottom: 0.4rem;
+    color: var(--muted);
+  }
+
+  .csv-label {
+    font-size: 0.875rem;
+    color: var(--ink);
+    margin-bottom: 0.2rem;
+  }
+
+  .csv-sub {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  .divider-or {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 1rem 0;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .divider-or::before, .divider-or::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* Poster styles */
+  .sched-movie.has-poster {
+    padding: 0;
+    overflow: hidden;
+    border: none;
+  }
+
+  .sched-movie.has-poster::before { display: none; }
+
+  .poster-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 2/3;
+    overflow: hidden;
+    border-radius: 3px;
+  }
+
+  .poster-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.3s;
+  }
+
+  .sched-movie.has-poster:hover .poster-img {
+    transform: scale(1.05);
+  }
+
+  .poster-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(transparent, rgba(26,20,16,0.92));
+    padding: 1.5rem 0.6rem 0.6rem;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .sched-movie.has-poster:hover .poster-overlay,
+  .sched-movie.has-poster.watched .poster-overlay {
+    opacity: 1;
+  }
+
+  .sched-movie.has-poster .sched-title {
+    color: var(--cream);
+    padding-left: 0;
+    font-size: 0.72rem;
+  }
+
+  .sched-movie.has-poster .sched-meta {
+    color: rgba(245,240,232,0.7);
+    padding-left: 0;
+  }
+
+  .sched-movie.has-poster.watched {
+    opacity: 0.5;
+    filter: grayscale(1);
+  }
+
+  .table-poster {
+    width: 36px;
+    height: 54px;
+    object-fit: cover;
+    border-radius: 2px;
+    display: block;
+  }
+
+  .table-poster-placeholder {
+    width: 36px;
+    height: 54px;
+    background: var(--border);
+    border-radius: 2px;
+  }
+
+  /* CSV import button */
   .btn-generate {
     background: var(--ink);
     color: var(--cream);
@@ -618,6 +749,16 @@
       <h2>Cole sua lista de filmes</h2>
       <p class="subtitle">Cole os títulos da sua watchlist do Letterboxd, um por linha. Você também pode adicionar o ano entre parênteses.</p>
 
+      <!-- CSV Drop Zone -->
+      <div class="csv-drop-zone" id="csvDropZone" onclick="document.getElementById('csvFileInput').click()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+        <input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="handleCSVFile(event)">
+        <div class="csv-icon">⬆</div>
+        <div class="csv-label">Arraste o <strong>watchlist.csv</strong> aqui</div>
+        <div class="csv-sub">ou clique para selecionar o arquivo</div>
+      </div>
+
+      <div class="divider-or"><span>ou cole manualmente</span></div>
+
       <textarea
         class="paste-area"
         id="movieInput"
@@ -729,6 +870,7 @@ Portrait of a Lady on Fire
       <table class="movie-table" id="movieTable">
         <thead>
           <tr>
+            <th></th>
             <th>#</th>
             <th>Título</th>
             <th>Semana</th>
@@ -745,11 +887,33 @@ Portrait of a Lady on Fire
 <div class="toast" id="toast"></div>
 
 <script>
+  const TMDB_KEY = '31a0a012db1a9dcc770cedf2e89946f9';
+  const TMDB_IMG = 'https://image.tmdb.org/t/p/w200';
+  const posterCache = {};
+
   let movies = [];
   let schedule = []; // array of weeks, each week = array of days (0-6), each day = array of movies
   let watchedSet = new Set();
   let currentWeek = 0;
   let totalWeeks = 0;
+
+  async function fetchPoster(title, year) {
+    const key = `${title}||${year}`;
+    if (posterCache[key] !== undefined) return posterCache[key];
+    try {
+      const q = encodeURIComponent(title);
+      const y = year ? `&year=${year}` : '';
+      const res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_KEY}&query=${q}${y}&language=pt-BR`);
+      const data = await res.json();
+      const path = data.results?.[0]?.poster_path || null;
+      posterCache[key] = path ? TMDB_IMG + path : null;
+    } catch { posterCache[key] = null; }
+    return posterCache[key];
+  }
+
+  async function prefetchPosters(movieList) {
+    await Promise.all(movieList.map(m => fetchPoster(m.title, m.year)));
+  }
 
   // Set default start date to next Monday
   const dateInput = document.getElementById('startDate');
@@ -760,7 +924,83 @@ Portrait of a Lady on Fire
   nextMonday.setDate(today.getDate() + (dayOfWeek === 1 ? 0 : daysToMonday));
   dateInput.value = nextMonday.toISOString().slice(0, 10);
 
-  function handleInput() {
+  function handleDragOver(e) {
+    e.preventDefault();
+    document.getElementById('csvDropZone').classList.add('drag-over');
+  }
+
+  function handleDragLeave(e) {
+    document.getElementById('csvDropZone').classList.remove('drag-over');
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    document.getElementById('csvDropZone').classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file && file.name.endsWith('.csv')) {
+      parseCSVFile(file);
+    } else {
+      showToast('Por favor, use um arquivo .csv');
+    }
+  }
+
+  function handleCSVFile(e) {
+    const file = e.target.files[0];
+    if (file) parseCSVFile(file);
+  }
+
+  function parseCSVFile(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const text = e.target.result;
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+      if (lines.length < 2) { showToast('CSV inválido ou vazio'); return; }
+
+      // Find header row to locate Name and Year columns
+      const header = lines[0].split(',').map(h => h.replace(/"/g, '').trim().toLowerCase());
+      const nameIdx = header.findIndex(h => h === 'name');
+      const yearIdx = header.findIndex(h => h === 'year');
+
+      if (nameIdx === -1) { showToast('Coluna "Name" não encontrada no CSV'); return; }
+
+      const parsed = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = splitCSVLine(lines[i]);
+        const name = cols[nameIdx]?.replace(/"/g, '').trim();
+        const year = yearIdx !== -1 ? cols[yearIdx]?.replace(/"/g, '').trim() : '';
+        if (name) parsed.push(year ? `${name} (${year})` : name);
+      }
+
+      if (parsed.length === 0) { showToast('Nenhum filme encontrado no CSV'); return; }
+
+      document.getElementById('movieInput').value = parsed.join('\n');
+      handleInput();
+      showToast(`✓ ${parsed.length} filmes importados do CSV!`);
+
+      // Update drop zone
+      const zone = document.getElementById('csvDropZone');
+      zone.style.borderColor = 'var(--gold)';
+      zone.querySelector('.csv-icon').textContent = '✓';
+      zone.querySelector('.csv-label').innerHTML = `<strong>${parsed.length} filmes</strong> importados com sucesso`;
+      zone.querySelector('.csv-sub').textContent = file.name;
+    };
+    reader.readAsText(file, 'UTF-8');
+  }
+
+  function splitCSVLine(line) {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      if (line[i] === '"') { inQuotes = !inQuotes; }
+      else if (line[i] === ',' && !inQuotes) { result.push(current); current = ''; }
+      else { current += line[i]; }
+    }
+    result.push(current);
+    return result;
+  }
+
+  
     const raw = document.getElementById('movieInput').value;
     const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
     movies = lines.map(line => {
@@ -807,7 +1047,7 @@ Portrait of a Lady on Fire
     return a;
   }
 
-  function generateSchedule() {
+  async function generateSchedule() {
     const err = document.getElementById('errorMsg');
     if (movies.length === 0) {
       err.style.display = 'block';
@@ -824,9 +1064,7 @@ Portrait of a Lady on Fire
     const startDateStr = document.getElementById('startDate').value;
     const startDate = startDateStr ? new Date(startDateStr + 'T00:00:00') : new Date();
 
-    // Distribute movies across weeks and days
-    // Days spread evenly across Mon-Sun
-    const daySlots = distributeDays(perWeek); // returns array of day indices (0=Mon,...6=Sun)
+    const daySlots = distributeDays(perWeek);
     schedule = [];
     let movieIdx = 0;
 
@@ -845,7 +1083,6 @@ Portrait of a Lady on Fire
     currentWeek = 0;
     watchedSet = new Set();
 
-    // Determine current week based on start date
     const todayMidnight = new Date();
     todayMidnight.setHours(0,0,0,0);
     const diffDays = Math.floor((todayMidnight - startDate) / (1000*60*60*24));
@@ -853,15 +1090,21 @@ Portrait of a Lady on Fire
       currentWeek = Math.min(Math.floor(diffDays / 7), totalWeeks - 1);
     }
 
-    renderSchedule(startDate, sorted);
-
     document.getElementById('schedule-output').style.display = 'block';
     document.getElementById('schedule-output').scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-    // Stats
     document.getElementById('statTotal').textContent = sorted.length;
     document.getElementById('statWeeks').textContent = totalWeeks;
     updateStats();
+
+    // Render immediately (no posters yet), then fetch posters
+    renderSchedule(startDate, sorted);
+
+    // Prefetch all posters in background and refresh cards
+    showToast('Buscando capas dos filmes…');
+    await prefetchPosters(sorted);
+    renderWeekGrid(startDate);
+    renderTablePosters();
+    showToast('✓ Capas carregadas!');
   }
 
   function distributeDays(perWeek) {
@@ -906,13 +1149,27 @@ Portrait of a Lady on Fire
         moviesDiv.innerHTML = '<div class="day-empty">— livre —</div>';
       } else {
         weekMovies.forEach(movie => {
+          const posterUrl = posterCache[`${movie.title}||${movie.year}`];
           const card = document.createElement('div');
           card.className = 'sched-movie' + (watchedSet.has(movie.globalIdx) ? ' watched' : '');
           card.title = 'Clique para marcar como assistido';
-          card.innerHTML = `
-            <div class="sched-title">${movie.title}</div>
-            ${movie.year ? `<div class="sched-meta">${movie.year}</div>` : ''}
-          `;
+          if (posterUrl) {
+            card.classList.add('has-poster');
+            card.innerHTML = `
+              <div class="poster-wrap">
+                <img class="poster-img" src="${posterUrl}" alt="${movie.title}" loading="lazy">
+                <div class="poster-overlay">
+                  <div class="sched-title">${movie.title}</div>
+                  ${movie.year ? `<div class="sched-meta">${movie.year}</div>` : ''}
+                </div>
+              </div>
+            `;
+          } else {
+            card.innerHTML = `
+              <div class="sched-title">${movie.title}</div>
+              ${movie.year ? `<div class="sched-meta">${movie.year}</div>` : ''}
+            `;
+          }
           card.onclick = () => toggleWatched(movie.globalIdx);
           moviesDiv.appendChild(card);
         });
@@ -929,11 +1186,9 @@ Portrait of a Lady on Fire
     const tbody = document.getElementById('movieTableBody');
     tbody.innerHTML = '';
 
-    let idx = 0;
     schedule.forEach((week, wi) => {
       const weekStart = new Date(startDate);
       weekStart.setDate(startDate.getDate() + wi * 7);
-
       const dayNames = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 
       week.forEach((dayMovies, di) => {
@@ -943,6 +1198,7 @@ Portrait of a Lady on Fire
           const tr = document.createElement('tr');
           tr.id = `row-${movie.globalIdx}`;
           tr.innerHTML = `
+            <td><div class="table-poster-placeholder" id="tposter-${movie.globalIdx}"></div></td>
             <td style="font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--muted)">${String(movie.globalIdx + 1).padStart(2,'0')}</td>
             <td><strong style="font-size:0.875rem">${movie.title}</strong>${movie.year ? ` <span style="color:var(--muted);font-size:0.78rem">(${movie.year})</span>` : ''}</td>
             <td><span class="week-badge">Semana ${wi + 1}</span></td>
@@ -950,7 +1206,20 @@ Portrait of a Lady on Fire
             <td id="status-${movie.globalIdx}" style="font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--muted)">pendente</td>
           `;
           tbody.appendChild(tr);
-          idx++;
+        });
+      });
+    });
+  }
+
+  function renderTablePosters() {
+    schedule.forEach(week => {
+      week.forEach(dayMovies => {
+        dayMovies.forEach(movie => {
+          const posterUrl = posterCache[`${movie.title}||${movie.year}`];
+          const el = document.getElementById(`tposter-${movie.globalIdx}`);
+          if (el && posterUrl) {
+            el.outerHTML = `<img class="table-poster" src="${posterUrl}" alt="${movie.title}" id="tposter-${movie.globalIdx}">`;
+          }
         });
       });
     });
