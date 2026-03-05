@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CineWeek — Seu cronograma de filmes</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --cream: #f5f0e8;
+    --ink: #1a1410;
+    --rust: #c0392b;
+    --gold: #d4a849;
+    --muted: #7a7068;
+    --card-bg: #fffdf8;
+    --border: #e0d8cc;
+  }
+
+  body {
+    background: var(--cream);
+    color: var(--ink);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grain texture overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.5;
+  }
+
+  /* Header */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 2rem 3rem;
+    display: flex;
+    align-items: baseline;
+    gap: 1.5rem;
+    background: var(--cream);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+
+  .logo span {
+    color: var(--rust);
+    font-style: italic;
+  }
+
+  .tagline {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding-bottom: 2px;
+  }
+
+  /* Main layout */
+  main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 3rem 3rem 6rem;
+  }
+
+  /* Import section */
+  .import-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    margin-bottom: 4rem;
+    align-items: start;
+  }
+
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.6rem;
+    font-weight: 400;
+    margin-bottom: 0.5rem;
+    line-height: 1.2;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    margin-bottom: 1.5rem;
+  }
+
+  /* Textarea */
+  .paste-area {
+    width: 100%;
+    min-height: 200px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--ink);
+    resize: vertical;
+    transition: border-color 0.2s;
+    line-height: 1.6;
+  }
+
+  .paste-area:focus {
+    outline: none;
+    border-color: var(--rust);
+  }
+
+  .paste-area::placeholder {
+    color: var(--muted);
+    opacity: 0.6;
+  }
+
+  /* How to section */
+  .how-to {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1.5rem;
+  }
+
+  .steps {
+    list-style: none;
+    margin-top: 1rem;
+  }
+
+  .steps li {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+
+  .steps li:last-child { margin-bottom: 0; }
+
+  .step-num {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--rust);
+    background: rgba(192,57,43,0.08);
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  code {
+    font-family: 'DM Mono', monospace;
+    background: var(--cream);
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+    font-size: 0.8em;
+    color: var(--ink);
+  }
+
+  /* Settings row */
+  .settings-row {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+    align-items: flex-end;
+  }
+
+  .setting-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .setting-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  select, input[type="number"] {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.5rem 0.75rem;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.875rem;
+    color: var(--ink);
+    cursor: pointer;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+  }
+
+  select:focus, input[type="number"]:focus {
+    outline: none;
+    border-color: var(--rust);
+  }
+
+  input[type="number"] { width: 80px; }
+
+  /* CTA Button */
+  .btn-generate {
+    background: var(--ink);
+    color: var(--cream);
+    border: none;
+    padding: 0.75rem 2rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: background 0.2s, transform 0.1s;
+    margin-top: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .btn-generate:hover { background: var(--rust); }
+  .btn-generate:active { transform: scale(0.98); }
+
+  /* Movie input pills area */
+  .movie-list-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    max-height: 120px;
+    overflow-y: auto;
+  }
+
+  .movie-pill {
+    background: var(--ink);
+    color: var(--cream);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    animation: popIn 0.2s ease;
+  }
+
+  @keyframes popIn {
+    from { opacity: 0; transform: scale(0.8); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .movie-pill button {
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 0;
+    font-size: 0.85rem;
+    line-height: 1;
+    transition: color 0.15s;
+  }
+
+  .movie-pill button:hover { color: var(--rust); }
+
+  /* Schedule output */
+  #schedule-output {
+    display: none;
+  }
+
+  .schedule-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+  }
+
+  .week-nav {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .week-nav button {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--ink);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .week-nav button:hover {
+    border-color: var(--rust);
+    color: var(--rust);
+  }
+
+  /* Week grid */
+  .week-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 3rem;
+  }
+
+  .day-col {
+    background: var(--card-bg);
+    min-height: 240px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .day-header {
+    padding: 0.75rem 0.75rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--cream);
+  }
+
+  .day-name {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .day-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.4rem;
+    line-height: 1;
+    margin-top: 0.1rem;
+  }
+
+  .day-col.today .day-header {
+    background: var(--ink);
+  }
+
+  .day-col.today .day-name,
+  .day-col.today .day-num {
+    color: var(--cream);
+  }
+
+  .day-movies {
+    flex: 1;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  /* Movie card in schedule */
+  .sched-movie {
+    background: var(--cream);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.6rem 0.7rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .sched-movie::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--gold);
+  }
+
+  .sched-movie:hover {
+    border-color: var(--rust);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+
+  .sched-movie.watched {
+    opacity: 0.45;
+  }
+
+  .sched-movie.watched::before {
+    background: var(--muted);
+  }
+
+  .sched-title {
+    font-size: 0.78rem;
+    font-weight: 500;
+    line-height: 1.3;
+    padding-left: 0.5rem;
+  }
+
+  .sched-meta {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted);
+    padding-left: 0.5rem;
+    margin-top: 0.2rem;
+  }
+
+  .sched-movie.watched .sched-title {
+    text-decoration: line-through;
+  }
+
+  /* Movie list (remaining) */
+  .remaining-section {
+    margin-top: 3rem;
+  }
+
+  .movie-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+  }
+
+  .movie-table th {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .movie-table td {
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  .movie-table tr:last-child td { border-bottom: none; }
+
+  .movie-table tr:hover td { background: rgba(0,0,0,0.015); }
+
+  .movie-table .week-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    background: var(--ink);
+    color: var(--cream);
+    padding: 0.2rem 0.5rem;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+
+  /* Stats bar */
+  .stats-bar {
+    display: flex;
+    gap: 3rem;
+    padding: 1.5rem 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2.5rem;
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .stat-value {
+    font-family: 'Playfair Display', serif;
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: var(--ink);
+    color: var(--cream);
+    padding: 0.75rem 1.25rem;
+    border-radius: 4px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s;
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Empty day */
+  .day-empty {
+    color: var(--border);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6rem;
+    text-align: center;
+    margin-top: auto;
+    margin-bottom: auto;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  /* Export btn */
+  .btn-export {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--ink);
+    padding: 0.5rem 1.2rem;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.15s;
+  }
+
+  .btn-export:hover {
+    border-color: var(--ink);
+    background: var(--ink);
+    color: var(--cream);
+  }
+
+  /* Error msg */
+  .error-msg {
+    color: var(--rust);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    margin-top: 0.5rem;
+    display: none;
+  }
+
+  @media (max-width: 900px) {
+    .import-section { grid-template-columns: 1fr; }
+    .week-grid { grid-template-columns: repeat(7, minmax(100px, 1fr)); overflow-x: auto; }
+    header { padding: 1.5rem; }
+    main { padding: 2rem 1.5rem 4rem; }
+    .stats-bar { gap: 1.5rem; flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Cine<span>Week</span></div>
+  <div class="tagline">Seu cronograma cinematográfico pessoal</div>
+</header>
+
+<main>
+  <!-- Import Section -->
+  <div class="import-section">
+    <div>
+      <div class="section-label">Importar watchlist</div>
+      <h2>Cole sua lista de filmes</h2>
+      <p class="subtitle">Cole os títulos da sua watchlist do Letterboxd, um por linha. Você também pode adicionar o ano entre parênteses.</p>
+
+      <textarea
+        class="paste-area"
+        id="movieInput"
+        placeholder="Mulholland Drive (2001)
+The Godfather
+Parasite (2019)
+Blade Runner 2049
+Portrait of a Lady on Fire
+..."
+        oninput="handleInput()"
+      ></textarea>
+      <div class="error-msg" id="errorMsg">Adicione pelo menos 1 filme para gerar o cronograma.</div>
+
+      <div id="pillsContainer" class="movie-list-preview"></div>
+
+      <div class="settings-row">
+        <div class="setting-group">
+          <div class="setting-label">Filmes por semana</div>
+          <input type="number" id="perWeek" value="3" min="1" max="7">
+        </div>
+        <div class="setting-group">
+          <div class="setting-label">Começar em</div>
+          <input type="date" id="startDate" style="background:var(--card-bg);border:1px solid var(--border);border-radius:4px;padding:0.5rem 0.75rem;font-family:'DM Sans',sans-serif;font-size:0.875rem;color:var(--ink);">
+        </div>
+        <div class="setting-group">
+          <div class="setting-label">Ordenar por</div>
+          <select id="sortMode">
+            <option value="as-is">Ordem original</option>
+            <option value="shuffle">Aleatório</option>
+            <option value="alpha">Alfabético</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="btn-generate" onclick="generateSchedule()">
+        <span>▶</span> Gerar cronograma
+      </button>
+    </div>
+
+    <div>
+      <div class="section-label">Como exportar do Letterboxd</div>
+      <div class="how-to">
+        <h2 style="font-size:1.2rem;">Exporte sua watchlist</h2>
+        <ul class="steps">
+          <li>
+            <span class="step-num">1</span>
+            <span>Acesse <code>letterboxd.com</code> e faça login na sua conta.</span>
+          </li>
+          <li>
+            <span class="step-num">2</span>
+            <span>Vá em <code>Perfil → Watchlist</code> para ver seus filmes salvos.</span>
+          </li>
+          <li>
+            <span class="step-num">3</span>
+            <span>Em <code>Settings → Import & Export</code>, clique em <code>Export Your Data</code> e baixe o ZIP.</span>
+          </li>
+          <li>
+            <span class="step-num">4</span>
+            <span>Abra o arquivo <code>watchlist.csv</code> e copie a coluna <code>Name</code> dos filmes.</span>
+          </li>
+          <li>
+            <span class="step-num">5</span>
+            <span>Cole aqui ao lado! Ou simplesmente escreva os títulos manualmente, um por linha.</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Schedule Output -->
+  <div id="schedule-output">
+    <div class="section-label">Cronograma gerado</div>
+
+    <div class="schedule-header">
+      <h2 id="weekTitle">Semana 1</h2>
+      <div style="display:flex;gap:0.75rem;align-items:center;">
+        <button class="btn-export" onclick="exportTXT()">↓ Exportar .txt</button>
+        <div class="week-nav">
+          <button onclick="changeWeek(-1)">‹</button>
+          <span id="weekLabel">Semana 1 de 4</span>
+          <button onclick="changeWeek(1)">›</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat">
+        <div class="stat-value" id="statTotal">0</div>
+        <div class="stat-label">Filmes no total</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="statWeeks">0</div>
+        <div class="stat-label">Semanas de conteúdo</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="statWatched">0</div>
+        <div class="stat-label">Já assistidos</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="statRemaining">0</div>
+        <div class="stat-label">Restantes</div>
+      </div>
+    </div>
+
+    <div class="week-grid" id="weekGrid"></div>
+
+    <div class="remaining-section">
+      <div class="section-label">Todos os filmes agendados</div>
+      <table class="movie-table" id="movieTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Título</th>
+            <th>Semana</th>
+            <th>Dia</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="movieTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let movies = [];
+  let schedule = []; // array of weeks, each week = array of days (0-6), each day = array of movies
+  let watchedSet = new Set();
+  let currentWeek = 0;
+  let totalWeeks = 0;
+
+  // Set default start date to next Monday
+  const dateInput = document.getElementById('startDate');
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const daysToMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+  const nextMonday = new Date(today);
+  nextMonday.setDate(today.getDate() + (dayOfWeek === 1 ? 0 : daysToMonday));
+  dateInput.value = nextMonday.toISOString().slice(0, 10);
+
+  function handleInput() {
+    const raw = document.getElementById('movieInput').value;
+    const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+    movies = lines.map(line => {
+      const match = line.match(/^(.*?)\s*\((\d{4})\)\s*$/);
+      if (match) return { title: match[1].trim(), year: match[2] };
+      return { title: line, year: null };
+    });
+    renderPills();
+  }
+
+  function renderPills() {
+    const container = document.getElementById('pillsContainer');
+    container.innerHTML = '';
+    movies.slice(0, 20).forEach((m, i) => {
+      const pill = document.createElement('div');
+      pill.className = 'movie-pill';
+      pill.innerHTML = `<span>${m.title}${m.year ? ` (${m.year})` : ''}</span>
+        <button onclick="removeMovie(${i})" title="Remover">×</button>`;
+      container.appendChild(pill);
+    });
+    if (movies.length > 20) {
+      const pill = document.createElement('div');
+      pill.className = 'movie-pill';
+      pill.style.background = 'var(--muted)';
+      pill.innerHTML = `<span>+${movies.length - 20} mais</span>`;
+      container.appendChild(pill);
+    }
+  }
+
+  function removeMovie(idx) {
+    movies.splice(idx, 1);
+    const lines = document.getElementById('movieInput').value.split('\n').filter(Boolean);
+    lines.splice(idx, 1);
+    document.getElementById('movieInput').value = lines.join('\n');
+    renderPills();
+  }
+
+  function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function generateSchedule() {
+    const err = document.getElementById('errorMsg');
+    if (movies.length === 0) {
+      err.style.display = 'block';
+      return;
+    }
+    err.style.display = 'none';
+
+    let sorted = [...movies];
+    const mode = document.getElementById('sortMode').value;
+    if (mode === 'shuffle') sorted = shuffle(sorted);
+    else if (mode === 'alpha') sorted.sort((a, b) => a.title.localeCompare(b.title));
+
+    const perWeek = parseInt(document.getElementById('perWeek').value) || 3;
+    const startDateStr = document.getElementById('startDate').value;
+    const startDate = startDateStr ? new Date(startDateStr + 'T00:00:00') : new Date();
+
+    // Distribute movies across weeks and days
+    // Days spread evenly across Mon-Sun
+    const daySlots = distributeDays(perWeek); // returns array of day indices (0=Mon,...6=Sun)
+    schedule = [];
+    let movieIdx = 0;
+
+    while (movieIdx < sorted.length) {
+      const week = Array.from({length: 7}, () => []);
+      daySlots.forEach(dayIdx => {
+        if (movieIdx < sorted.length) {
+          week[dayIdx].push({ ...sorted[movieIdx], globalIdx: movieIdx });
+          movieIdx++;
+        }
+      });
+      schedule.push(week);
+    }
+
+    totalWeeks = schedule.length;
+    currentWeek = 0;
+    watchedSet = new Set();
+
+    // Determine current week based on start date
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0,0,0,0);
+    const diffDays = Math.floor((todayMidnight - startDate) / (1000*60*60*24));
+    if (diffDays >= 0) {
+      currentWeek = Math.min(Math.floor(diffDays / 7), totalWeeks - 1);
+    }
+
+    renderSchedule(startDate, sorted);
+
+    document.getElementById('schedule-output').style.display = 'block';
+    document.getElementById('schedule-output').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Stats
+    document.getElementById('statTotal').textContent = sorted.length;
+    document.getElementById('statWeeks').textContent = totalWeeks;
+    updateStats();
+  }
+
+  function distributeDays(perWeek) {
+    // Spread movies across the week (Mon-Sun), preferring weekends
+    const preferredOrder = [4, 5, 6, 0, 1, 2, 3]; // Fri, Sat, Sun, Mon, Tue, Wed, Thu
+    return preferredOrder.slice(0, Math.min(perWeek, 7)).sort((a,b) => a-b);
+  }
+
+  function renderSchedule(startDate, allMovies) {
+    renderWeekGrid(startDate);
+    renderTable(startDate, allMovies);
+    updateWeekLabel();
+  }
+
+  function renderWeekGrid(startDate) {
+    const grid = document.getElementById('weekGrid');
+    grid.innerHTML = '';
+    const weekStartDate = new Date(startDate);
+    weekStartDate.setDate(startDate.getDate() + currentWeek * 7);
+
+    const dayNames = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+    const todayStr = new Date().toDateString();
+
+    for (let d = 0; d < 7; d++) {
+      const dayDate = new Date(weekStartDate);
+      dayDate.setDate(weekStartDate.getDate() + d);
+
+      const col = document.createElement('div');
+      col.className = 'day-col' + (dayDate.toDateString() === todayStr ? ' today' : '');
+
+      const header = document.createElement('div');
+      header.className = 'day-header';
+      header.innerHTML = `<div class="day-name">${dayNames[d]}</div>
+        <div class="day-num">${dayDate.getDate()}</div>`;
+      col.appendChild(header);
+
+      const moviesDiv = document.createElement('div');
+      moviesDiv.className = 'day-movies';
+
+      const weekMovies = schedule[currentWeek] ? schedule[currentWeek][d] : [];
+      if (weekMovies.length === 0) {
+        moviesDiv.innerHTML = '<div class="day-empty">— livre —</div>';
+      } else {
+        weekMovies.forEach(movie => {
+          const card = document.createElement('div');
+          card.className = 'sched-movie' + (watchedSet.has(movie.globalIdx) ? ' watched' : '');
+          card.title = 'Clique para marcar como assistido';
+          card.innerHTML = `
+            <div class="sched-title">${movie.title}</div>
+            ${movie.year ? `<div class="sched-meta">${movie.year}</div>` : ''}
+          `;
+          card.onclick = () => toggleWatched(movie.globalIdx);
+          moviesDiv.appendChild(card);
+        });
+      }
+
+      col.appendChild(moviesDiv);
+      grid.appendChild(col);
+    }
+
+    document.getElementById('weekTitle').textContent = `Semana ${currentWeek + 1}`;
+  }
+
+  function renderTable(startDate, allMovies) {
+    const tbody = document.getElementById('movieTableBody');
+    tbody.innerHTML = '';
+
+    let idx = 0;
+    schedule.forEach((week, wi) => {
+      const weekStart = new Date(startDate);
+      weekStart.setDate(startDate.getDate() + wi * 7);
+
+      const dayNames = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+
+      week.forEach((dayMovies, di) => {
+        dayMovies.forEach(movie => {
+          const dayDate = new Date(weekStart);
+          dayDate.setDate(weekStart.getDate() + di);
+          const tr = document.createElement('tr');
+          tr.id = `row-${movie.globalIdx}`;
+          tr.innerHTML = `
+            <td style="font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--muted)">${String(movie.globalIdx + 1).padStart(2,'0')}</td>
+            <td><strong style="font-size:0.875rem">${movie.title}</strong>${movie.year ? ` <span style="color:var(--muted);font-size:0.78rem">(${movie.year})</span>` : ''}</td>
+            <td><span class="week-badge">Semana ${wi + 1}</span></td>
+            <td style="font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--muted)">${dayNames[di]}, ${dayDate.toLocaleDateString('pt-BR', {day:'2-digit',month:'short'})}</td>
+            <td id="status-${movie.globalIdx}" style="font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--muted)">pendente</td>
+          `;
+          tbody.appendChild(tr);
+          idx++;
+        });
+      });
+    });
+  }
+
+  function toggleWatched(globalIdx) {
+    if (watchedSet.has(globalIdx)) {
+      watchedSet.delete(globalIdx);
+      showToast('Marcado como não assistido');
+    } else {
+      watchedSet.add(globalIdx);
+      showToast('✓ Marcado como assistido!');
+    }
+    // Update card in grid
+    const cards = document.querySelectorAll('.sched-movie');
+    cards.forEach(card => {
+      const title = card.querySelector('.sched-title')?.textContent;
+      // Re-render is simpler
+    });
+    // Re-render week grid
+    const startDateStr = document.getElementById('startDate').value;
+    const startDate = startDateStr ? new Date(startDateStr + 'T00:00:00') : new Date();
+    renderWeekGrid(startDate);
+
+    // Update table row
+    const statusEl = document.getElementById(`status-${globalIdx}`);
+    if (statusEl) {
+      if (watchedSet.has(globalIdx)) {
+        statusEl.textContent = '✓ assistido';
+        statusEl.style.color = 'var(--rust)';
+      } else {
+        statusEl.textContent = 'pendente';
+        statusEl.style.color = 'var(--muted)';
+      }
+    }
+
+    updateStats();
+  }
+
+  function updateStats() {
+    const total = movies.length;
+    const watched = watchedSet.size;
+    document.getElementById('statWatched').textContent = watched;
+    document.getElementById('statRemaining').textContent = total - watched;
+  }
+
+  function changeWeek(dir) {
+    currentWeek = Math.max(0, Math.min(totalWeeks - 1, currentWeek + dir));
+    const startDateStr = document.getElementById('startDate').value;
+    const startDate = startDateStr ? new Date(startDateStr + 'T00:00:00') : new Date();
+    renderWeekGrid(startDate);
+    updateWeekLabel();
+  }
+
+  function updateWeekLabel() {
+    document.getElementById('weekLabel').textContent = `Semana ${currentWeek + 1} de ${totalWeeks}`;
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._timeout);
+    t._timeout = setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  function exportTXT() {
+    const startDateStr = document.getElementById('startDate').value;
+    const startDate = startDateStr ? new Date(startDateStr + 'T00:00:00') : new Date();
+    const dayNames = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+    let txt = 'CINEWEEK — Cronograma de Filmes\n';
+    txt += '================================\n\n';
+
+    schedule.forEach((week, wi) => {
+      const weekStart = new Date(startDate);
+      weekStart.setDate(startDate.getDate() + wi * 7);
+      txt += `SEMANA ${wi + 1}\n`;
+      txt += `─────────────────────\n`;
+      week.forEach((dayMovies, di) => {
+        if (dayMovies.length > 0) {
+          const dayDate = new Date(weekStart);
+          dayDate.setDate(weekStart.getDate() + di);
+          txt += `${dayNames[di]} (${dayDate.toLocaleDateString('pt-BR')})\n`;
+          dayMovies.forEach(m => {
+            txt += `  • ${m.title}${m.year ? ` (${m.year})` : ''}${watchedSet.has(m.globalIdx) ? ' ✓' : ''}\n`;
+          });
+        }
+      });
+      txt += '\n';
+    });
+
+    const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'cineweek-cronograma.txt';
+    a.click();
+    showToast('Cronograma exportado!');
+  }
+</script>
+</body>
+</html>
